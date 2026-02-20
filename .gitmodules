@@ -1,0 +1,6 @@
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/Ruslan361/dataset-manager-vue-gui.git
+[submodule "backend"]
+	path = backend
+	url = https://github.com/Ruslan361/dataset-manager.git
