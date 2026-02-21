@@ -1,0 +1,56 @@
+﻿name: Build Release (Simple)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: dtolnay/rust-toolchain@stable
+      
+      - name: Run build scripts
+        run: |
+          chmod +x scripts/build-tauri.sh scripts/create-release-scripts.sh
+          cd scripts
+          ./build-tauri.sh
+          ./create-release-scripts.sh
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: release/linux/
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: dtolnay/rust-toolchain@stable
+      
+      - name: Run build scripts
+        shell: pwsh
+        run: |
+          cd scripts
+          .\build-tauri.ps1
+          .\create-release-scripts.ps1
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: release/windows/
+
+  # НЕ КОММИТИМ - только храним артефакты в Actions
+  # Пользователи скачивают из вкладки Artifacts
