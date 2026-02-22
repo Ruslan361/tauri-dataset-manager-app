@@ -3,6 +3,9 @@
 
 $ErrorActionPreference = "Stop"
 
+# Создаем объект кодировки UTF-8 с обязательным добавлением BOM ($true)
+$utf8BOM = New-Object System.Text.UTF8Encoding($true)
+
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "📝 Creating Release Scripts for Windows" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
@@ -143,7 +146,9 @@ Write-Host "  .\start.ps1" -ForegroundColor White
 Write-Host ""
 '@
 
-Set-Content -Path "$releaseDir\install.ps1" -Value $installScript -Encoding UTF8
+# Используем .NET класс для гарантии сохранения файла с BOM
+$installPath = Join-Path $releaseDir "install.ps1"
+[System.IO.File]::WriteAllText($installPath, $installScript, $utf8BOM)
 Write-Host "✓ install.ps1 created" -ForegroundColor Green
 
 # ========================================
@@ -332,7 +337,8 @@ $app.WaitForExit()
 Stop-Backend
 '@
 
-Set-Content -Path "$releaseDir\start.ps1" -Value $startScript -Encoding UTF8
+$startPath = Join-Path $releaseDir "start.ps1"
+[System.IO.File]::WriteAllText($startPath, $startScript, $utf8BOM)
 Write-Host "✓ start.ps1 created" -ForegroundColor Green
 
 # ========================================
@@ -373,7 +379,8 @@ Write-Host ""
 & ".venv\Scripts\python.exe" main.py
 '@
 
-Set-Content -Path "$releaseDir\start-backend-only.ps1" -Value $backendOnlyScript -Encoding UTF8
+$backendOnlyPath = Join-Path $releaseDir "start-backend-only.ps1"
+[System.IO.File]::WriteAllText($backendOnlyPath, $backendOnlyScript, $utf8BOM)
 Write-Host "✓ start-backend-only.ps1 created" -ForegroundColor Green
 
 # ========================================
@@ -395,20 +402,5 @@ $readmeContent = @"
 
 ### 1. Install Dependencies
 
-``````powershell
+```powershell
 .\install.ps1
-"@
-
-Set-Content -Path "$releaseDir\README.md" -Value $readmeContent -Encoding UTF8
-Write-Host "✓ README.md created" -ForegroundColor Green
-
-Write-Host ""
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "✅ All release scripts created!" -ForegroundColor Green
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Release directory: $releaseDir" -ForegroundColor White
-Write-Host ""
-
-# Успешное завершение
-exit 0
