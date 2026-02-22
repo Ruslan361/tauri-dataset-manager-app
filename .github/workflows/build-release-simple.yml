@@ -10,13 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'  
+          
       - name: Setup deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          
       - uses: dtolnay/rust-toolchain@stable
       
       - name: Run build scripts
@@ -35,9 +40,13 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'  
+          
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          
       - uses: dtolnay/rust-toolchain@stable
       
       - name: Run build scripts
@@ -45,7 +54,9 @@ jobs:
         run: |
           cd scripts
           .\build-tauri.ps1
-          .\create-release-scripts.ps1
+          # ✅ Исправлено: убрана строка с несуществующим скриптом
+          # Если create-release-scripts.ps1 существует, раскомментируйте:
+          # .\create-release-scripts.ps1
       
       - uses: actions/upload-artifact@v4
         with:
