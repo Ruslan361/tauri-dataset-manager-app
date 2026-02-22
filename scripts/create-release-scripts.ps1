@@ -111,13 +111,29 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 
 Write-Host ""
 
-# Установка зависимостей
 Write-Host "Installing Python dependencies..." -ForegroundColor Cyan
 Print-Info "This may take a few minutes..."
 Write-Host ""
 
-# uv sync создаст .venv и установит все зависимости
+# =================================================================
+# 🛡️ ПУЛЕНЕПРОБИВАЕМАЯ ЗАЩИТА ОТ КИРИЛЛИЦЫ В ПУТЯХ TEMP И CACHE
+# Создаем временную папку прямо внутри backend, чтобы избежать 
+# кириллицы в C:\Users\Имя\AppData\Local\Temp
+# =================================================================
+$SafeTempDir = Join-Path $PWD ".uv_temp"
+New-Item -ItemType Directory -Path $SafeTempDir -Force | Out-Null
+
+# Переопределяем системные переменные только для этого скрипта
+$env:TEMP = $SafeTempDir
+$env:TMP = $SafeTempDir
+$env:UV_CACHE_DIR = Join-Path $PWD ".uv_cache" 
+
+# uv sync создаст .venv и установит все зависимости, используя безопасный Temp
 uv sync
+
+# Удаляем временные папки после успешной (или неуспешной) установки
+Remove-Item -Path $SafeTempDir -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path $env:UV_CACHE_DIR -Recurse -Force -ErrorAction SilentlyContinue
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
