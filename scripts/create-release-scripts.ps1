@@ -381,7 +381,7 @@ Write-Host "✓ start-backend-only.ps1 created" -ForegroundColor Green
 # ========================================
 Write-Host "Creating README.md..." -ForegroundColor Cyan
 
-$readmeContent = @'
+$readmeContent = @"
 # Dataset Manager - Portable Application (Windows)
 
 ## 📋 System Requirements
@@ -395,5 +395,9 @@ $readmeContent = @'
 
 ### 1. Install Dependencies
 
-```powershell
+``````powershell
 .\install.ps1
+"@
+
+Set-Content -Path "$releaseDir\README.md" -Value $readmeContent -Encoding UTF8
+Write-Host "✓ README.md created" -ForegroundColor Green
