@@ -232,12 +232,7 @@ function Start-Backend {
     Set-Location "backend"
     
     # Запускаем backend в фоне
-    $processInfo = Start-Process -FilePath ".venv\Scripts\python.exe" `
-                                  -ArgumentList "main.py" `
-                                  -WindowStyle Hidden `
-                                  -RedirectStandardOutput $backendLog `
-                                  -RedirectStandardError $backendLog `
-                                  -PassThru
+    $processInfo = Start-Process -FilePath ".venv\Scripts\python.exe" -ArgumentList "main.py" -WindowStyle Hidden -RedirectStandardOutput $backendLog -RedirectStandardError $backendLog -PassThru
     
     $backendPid = $processInfo.Id
     Set-Content -Path $backendPidFile -Value $backendPid
