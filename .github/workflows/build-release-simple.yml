@@ -7,6 +7,7 @@ on:
 
 jobs:
   build-linux:
+    # ... (код build-linux оставляем без изменений)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,19 +53,26 @@ jobs:
       - name: Run build scripts
         shell: pwsh
         run: |
-          # Сохраняем путь к scripts
           $scriptsPath = Join-Path $PWD "scripts"
-          
-          # Запускаем build-tauri.ps1
           & "$scriptsPath\build-tauri.ps1"
-          
-          # Запускаем create-release-scripts.ps1
           & "$scriptsPath\create-release-scripts.ps1"
+          
+      # 1. Устанавливаем Inno Setup
+      - name: Install Inno Setup
+        run: choco install innosetup
+        
+      # 2. Компилируем установщик из скрипта
+      - name: Build Installer
+        run: iscc scripts/installer.iss
       
+      # 3. Загружаем portable-версию (папку)
       - uses: actions/upload-artifact@v4
         with:
-          name: release-windows
+          name: release-windows-portable
           path: release/windows/
 
-  # НЕ КОММИТИМ - только храним артефакты в Actions
-  # Пользователи скачивают из вкладки Artifacts
+      # 4. Загружаем сам установщик (setup.exe)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-installer
+          path: release/DatasetManager_Setup.exe
