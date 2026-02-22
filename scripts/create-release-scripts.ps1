@@ -129,7 +129,7 @@ $env:TMP = $SafeTempDir
 $env:UV_CACHE_DIR = Join-Path $PWD ".uv_cache" 
 
 # uv sync создаст .venv и установит все зависимости, используя безопасный Temp
-uv sync --no-build
+uv sync
 
 # Удаляем временные папки после успешной (или неуспешной) установки
 Remove-Item -Path $SafeTempDir -Recurse -Force -ErrorAction SilentlyContinue
