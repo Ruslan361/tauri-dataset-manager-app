@@ -215,16 +215,21 @@ if (-not (Test-Path "dataset-manager.exe")) {
 
 # PID файл для backend
 $backendPidFile = "$env:TEMP\dataset-manager-backend-$env:USERNAME.pid"
+
+# РАЗДЕЛЯЕМ ЛОГИ: один для stdout, другой для stderr
 $backendLog = "$env:LOCALAPPDATA\dataset-manager\backend.log"
+$backendErrorLog = "$env:LOCALAPPDATA\dataset-manager\backend-error.log"
 
 # Создаем директорию для логов
 New-Item -ItemType Directory -Path (Split-Path $backendLog) -Force -ErrorAction SilentlyContinue | Out-Null
 
-# Функция проверки backend
+# Функция проверки backend (ТЕПЕРЬ ПРОВЕРЯЕМ ТОЛЬКО ПОРТ 8000)
 function Test-Backend {
     try {
-        $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
-        return $response.StatusCode -eq 200
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        $tcpClient.Connect("127.0.0.1", 8000)
+        $tcpClient.Close()
+        return $true
     } catch {
         return $false
     }
@@ -236,8 +241,8 @@ function Start-Backend {
     
     Set-Location "backend"
     
-    # Запускаем backend в фоне
-    $processInfo = Start-Process -FilePath ".venv\Scripts\python.exe" -ArgumentList "main.py" -WindowStyle Hidden -RedirectStandardOutput $backendLog -RedirectStandardError $backendLog -PassThru
+    # Запускаем backend в фоне, направляя логи в разные файлы
+    $processInfo = Start-Process -FilePath ".venv\Scripts\python.exe" -ArgumentList "main.py" -WindowStyle Hidden -RedirectStandardOutput $backendLog -RedirectStandardError $backendErrorLog -PassThru
     
     $backendPid = $processInfo.Id
     Set-Content -Path $backendPidFile -Value $backendPid
@@ -258,7 +263,7 @@ function Start-Backend {
     
     Write-Host ""
     Print-Warning "Backend is taking longer to start..."
-    Print-Info "Check logs: $backendLog"
+    Print-Info "Check logs: $backendErrorLog"
     Write-Host ""
     return $false
 }
@@ -312,10 +317,15 @@ if (Test-Backend) {
     
     if (-not $started -or -not (Test-Backend)) {
         Print-Error "Backend failed to start!"
-        Print-Info "Check logs: $backendLog"
+        Print-Info "Check logs: $backendErrorLog"
         Write-Host ""
-        if (Test-Path $backendLog) {
-            Write-Host "Last 10 lines of log:" -ForegroundColor Yellow
+        
+        # Сначала проверяем лог ошибок
+        if (Test-Path $backendErrorLog) {
+            Write-Host "Last 10 lines of error log:" -ForegroundColor Yellow
+            Get-Content $backendErrorLog -Tail 10
+        } elseif (Test-Path $backendLog) {
+            Write-Host "Last 10 lines of stdout log:" -ForegroundColor Yellow
             Get-Content $backendLog -Tail 10
         }
         exit 1
@@ -326,7 +336,7 @@ if (Test-Backend) {
 Print-Info "Starting GUI application..."
 Write-Host ""
 Write-Host "Backend API: http://127.0.0.1:8000" -ForegroundColor Green
-Write-Host "Backend logs: $backendLog" -ForegroundColor Gray
+Write-Host "Backend logs: $backendLog and $backendErrorLog" -ForegroundColor Gray
 Write-Host ""
 
 # Запускаем приложение и ждем его завершения
