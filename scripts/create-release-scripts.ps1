@@ -409,3 +409,15 @@ $readmeContent = @"
 $readmePath = Join-Path $releaseDir "README.md"
 [System.IO.File]::WriteAllText($readmePath, $readmeContent, $utf8BOM)
 Write-Host "✓ README.md created" -ForegroundColor Green
+
+
+Write-Host ""
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "✅ All release scripts created!" -ForegroundColor Green
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Release directory: $releaseDir" -ForegroundColor White
+Write-Host ""
+
+# Успешное завершение
+exit 0
