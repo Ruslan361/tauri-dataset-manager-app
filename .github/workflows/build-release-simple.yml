@@ -52,9 +52,14 @@ jobs:
       - name: Run build scripts
         shell: pwsh
         run: |
-          cd scripts
-          .\build-tauri.ps1
-          .\create-release-scripts.ps1
+          # Сохраняем путь к scripts
+          $scriptsPath = Join-Path $PWD "scripts"
+          
+          # Запускаем build-tauri.ps1
+          & "$scriptsPath\build-tauri.ps1"
+          
+          # Запускаем create-release-scripts.ps1
+          & "$scriptsPath\create-release-scripts.ps1"
       
       - uses: actions/upload-artifact@v4
         with:
