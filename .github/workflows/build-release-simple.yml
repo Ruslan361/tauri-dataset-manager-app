@@ -54,9 +54,7 @@ jobs:
         run: |
           cd scripts
           .\build-tauri.ps1
-          # ✅ Исправлено: убрана строка с несуществующим скриптом
-          # Если create-release-scripts.ps1 существует, раскомментируйте:
-          # .\create-release-scripts.ps1
+          .\create-release-scripts.ps1
       
       - uses: actions/upload-artifact@v4
         with:

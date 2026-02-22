@@ -226,13 +226,43 @@ if (-not (Test-Path $releaseDir)) {
 }
 
 Write-Host "📋 Copying artifacts to release directory..." -ForegroundColor Cyan
-if ($msiFiles) {
-    Copy-Item -Path $msiFiles[0].FullName -Destination $releaseDir -Force
-    Print-Status "MSI copied to: $releaseDir"
+
+# Копируем EXE-файл приложения (не установщики!)
+$targetDir = "src-tauri\target\release"
+$appExe = Get-ChildItem -Path $targetDir -Filter "*.exe" -File -ErrorAction SilentlyContinue | 
+          Where-Object { $_.Name -notlike "*-setup.exe" -and $_.Name -notlike "*installer*.exe" } |
+          Select-Object -First 1
+
+if ($appExe) {
+    Copy-Item -Path $appExe.FullName -Destination "$releaseDir\dataset-manager.exe" -Force
+    Print-Status "Copied application executable: dataset-manager.exe"
+} else {
+    Print-Warning "Application executable not found in $targetDir"
 }
-if ($exeFiles) {
-    Copy-Item -Path $exeFiles[0].FullName -Destination $releaseDir -Force
-    Print-Status "NSIS installer copied to: $releaseDir"
+
+# Копируем backend
+$backendSource = Join-Path $PSScriptRoot "..\backend"
+$backendDest = Join-Path $releaseDir "backend"
+
+if (Test-Path $backendSource) {
+    Write-Host "Copying backend..." -ForegroundColor Cyan
+    
+    # Создаем директорию backend
+    if (Test-Path $backendDest) {
+        Remove-Item -Path $backendDest -Recurse -Force
+    }
+    
+    # Копируем все содержимое backend, кроме .venv и __pycache__
+    robocopy $backendSource $backendDest /E /XD .venv __pycache__ .pytest_cache node_modules /XF *.pyc .DS_Store /NFL /NDL /NJH /NJS /nc /ns /np
+    
+    # robocopy возвращает код 0-7 как успех
+    if ($LASTEXITCODE -le 7) {
+        Print-Status "Backend copied to: $backendDest"
+    } else {
+        Print-Warning "Failed to copy backend (error code: $LASTEXITCODE)"
+    }
+} else {
+    Print-Warning "Backend source not found at: $backendSource"
 }
 
 Write-Host ""

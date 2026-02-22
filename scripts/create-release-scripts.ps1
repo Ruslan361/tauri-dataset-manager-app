@@ -132,13 +132,14 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
+Set-Location ..
+
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "✅ Installation completed!" -ForegroundColor Green
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Run the backend: .\run-backend.ps1" -ForegroundColor White
-Write-Host "  2. Launch the app: .\run-app.ps1" -ForegroundColor White
+Write-Host "To start the application:" -ForegroundColor Cyan
+Write-Host "  .\start.ps1" -ForegroundColor White
 Write-Host ""
 '@
 
@@ -146,95 +147,247 @@ Set-Content -Path "$releaseDir\install.ps1" -Value $installScript -Encoding UTF8
 Write-Host "✓ install.ps1 created" -ForegroundColor Green
 
 # ========================================
-# 2. Скрипт запуска backend (run-backend.ps1)
+# 2. Главный скрипт запуска (start.ps1)
 # ========================================
-Write-Host "Creating run-backend.ps1..." -ForegroundColor Cyan
+Write-Host "Creating start.ps1..." -ForegroundColor Cyan
 
-$runBackendScript = @'
-# run-backend.ps1
-# Starts the Dataset Manager backend server
+$startScript = @'
+# start.ps1
+# Starts Dataset Manager application with backend
 
 $ErrorActionPreference = "Stop"
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $scriptDir
+
+# Функции
+function Print-Status {
+    param([string]$Message)
+    Write-Host "✓ " -ForegroundColor Green -NoNewline
+    Write-Host $Message
+}
+
+function Print-Error {
+    param([string]$Message)
+    Write-Host "✗ " -ForegroundColor Red -NoNewline
+    Write-Host $Message
+}
+
+function Print-Info {
+    param([string]$Message)
+    Write-Host "ℹ " -ForegroundColor Blue -NoNewline
+    Write-Host $Message
+}
+
+function Print-Warning {
+    param([string]$Message)
+    Write-Host "⚠ " -ForegroundColor Yellow -NoNewline
+    Write-Host $Message
+}
+
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "🚀 Starting Dataset Manager Backend" -ForegroundColor Cyan
+Write-Host "🚀 Dataset Manager" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
+
+# Проверка зависимостей
+if (-not (Test-Path "backend\.venv")) {
+    Print-Error "Dependencies not installed!"
+    Write-Host ""
+    Write-Host "Please run first:" -ForegroundColor Yellow
+    Write-Host "  .\install.ps1" -ForegroundColor White
+    Write-Host ""
+    exit 1
+}
+
+# Проверка executable
+if (-not (Test-Path "dataset-manager.exe")) {
+    Print-Error "Application executable not found!"
+    Write-Host ""
+    Write-Host "Expected: $scriptDir\dataset-manager.exe" -ForegroundColor Yellow
+    exit 1
+}
+
+# PID файл для backend
+$backendPidFile = "$env:TEMP\dataset-manager-backend-$env:USERNAME.pid"
+$backendLog = "$env:LOCALAPPDATA\dataset-manager\backend.log"
+
+# Создаем директорию для логов
+New-Item -ItemType Directory -Path (Split-Path $backendLog) -Force -ErrorAction SilentlyContinue | Out-Null
+
+# Функция проверки backend
+function Test-Backend {
+    try {
+        $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
+        return $response.StatusCode -eq 200
+    } catch {
+        return $false
+    }
+}
+
+# Функция запуска backend
+function Start-Backend {
+    Print-Info "Starting backend..."
+    
+    Set-Location "backend"
+    
+    # Запускаем backend в фоне
+    $processInfo = Start-Process -FilePath ".venv\Scripts\python.exe" `
+                                  -ArgumentList "main.py" `
+                                  -WindowStyle Hidden `
+                                  -RedirectStandardOutput $backendLog `
+                                  -RedirectStandardError $backendLog `
+                                  -PassThru
+    
+    $backendPid = $processInfo.Id
+    Set-Content -Path $backendPidFile -Value $backendPid
+    
+    Set-Location ..
+    
+    # Ждем запуска backend (максимум 15 секунд)
+    Print-Info "Waiting for backend to start..."
+    for ($i = 1; $i -le 15; $i++) {
+        if (Test-Backend) {
+            Print-Status "Backend started (PID: $backendPid)"
+            Write-Host ""
+            return $true
+        }
+        Write-Host "." -NoNewline
+        Start-Sleep -Seconds 1
+    }
+    
+    Write-Host ""
+    Print-Warning "Backend is taking longer to start..."
+    Print-Info "Check logs: $backendLog"
+    Write-Host ""
+    return $false
+}
+
+# Функция остановки backend
+function Stop-Backend {
+    if (Test-Path $backendPidFile) {
+        $backendPid = Get-Content $backendPidFile
+        
+        try {
+            $process = Get-Process -Id $backendPid -ErrorAction SilentlyContinue
+            if ($process) {
+                Print-Info "Stopping backend (PID: $backendPid)..."
+                Stop-Process -Id $backendPid -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 1
+            }
+        } catch {
+            # Process already stopped
+        }
+        
+        Remove-Item $backendPidFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# Cleanup при выходе
+$cleanup = {
+    Write-Host ""
+    Stop-Backend
+    Print-Status "Cleanup complete"
+}
+
+# Регистрируем cleanup
+Register-EngineEvent PowerShell.Exiting -Action $cleanup | Out-Null
+
+# Проверяем, запущен ли уже backend
+if (Test-Backend) {
+    Print-Status "Backend already running at http://127.0.0.1:8000"
+    Write-Host ""
+    
+    if (Test-Path $backendPidFile) {
+        $existingPid = Get-Content $backendPidFile
+        Print-Info "Existing backend PID: $existingPid"
+    } else {
+        Print-Warning "Backend started by another instance"
+        Set-Content -Path $backendPidFile -Value "0"
+    }
+    Write-Host ""
+} else {
+    # Запускаем backend
+    $started = Start-Backend
+    
+    if (-not $started -or -not (Test-Backend)) {
+        Print-Error "Backend failed to start!"
+        Print-Info "Check logs: $backendLog"
+        Write-Host ""
+        if (Test-Path $backendLog) {
+            Write-Host "Last 10 lines of log:" -ForegroundColor Yellow
+            Get-Content $backendLog -Tail 10
+        }
+        exit 1
+    }
+}
+
+# Запускаем GUI приложение
+Print-Info "Starting GUI application..."
+Write-Host ""
+Write-Host "Backend API: http://127.0.0.1:8000" -ForegroundColor Green
+Write-Host "Backend logs: $backendLog" -ForegroundColor Gray
+Write-Host ""
+
+# Запускаем приложение и ждем его завершения
+$app = Start-Process -FilePath ".\dataset-manager.exe" -PassThru
+$app.WaitForExit()
+
+# После закрытия GUI останавливаем backend
+Stop-Backend
+'@
+
+Set-Content -Path "$releaseDir\start.ps1" -Value $startScript -Encoding UTF8
+Write-Host "✓ start.ps1 created" -ForegroundColor Green
+
+# ========================================
+# 3. Скрипт только для backend (start-backend-only.ps1)
+# ========================================
+Write-Host "Creating start-backend-only.ps1..." -ForegroundColor Cyan
+
+$backendOnlyScript = @'
+# start-backend-only.ps1
+# Starts only the Dataset Manager backend server
+
+$ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location "$scriptDir\backend"
 
-# Проверка virtual environment
-if (-not (Test-Path ".venv" -PathType Container)) {
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "🐍 Dataset Manager Backend" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Проверка venv
+if (-not (Test-Path ".venv")) {
     Write-Host "❌ Virtual environment not found!" -ForegroundColor Red
-    Write-Host "Please run install.ps1 first" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Please run: ..\install.ps1" -ForegroundColor Yellow
     exit 1
 }
 
-# Активируем virtual environment и запускаем backend
-Write-Host "Starting backend server..." -ForegroundColor Cyan
+Write-Host "ℹ Starting backend server..." -ForegroundColor Blue
+Write-Host "✓ API will be available at: http://127.0.0.1:8000" -ForegroundColor Green
+Write-Host "✓ Docs: http://127.0.0.1:8000/docs" -ForegroundColor Green
+Write-Host ""
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
-& ".venv\Scripts\Activate.ps1"
-uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+# Запускаем backend
+& ".venv\Scripts\python.exe" main.py
 '@
 
-Set-Content -Path "$releaseDir\run-backend.ps1" -Value $runBackendScript -Encoding UTF8
-Write-Host "✓ run-backend.ps1 created" -ForegroundColor Green
-
-# ========================================
-# 3. Скрипт запуска приложения (run-app.ps1)
-# ========================================
-Write-Host "Creating run-app.ps1..." -ForegroundColor Cyan
-
-$runAppScript = @'
-# run-app.ps1
-# Launches the Dataset Manager application
-
-$ErrorActionPreference = "Stop"
-
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "🚀 Launching Dataset Manager" -ForegroundColor Cyan
-Write-Host "================================================" -ForegroundColor Cyan
-Write-Host ""
-
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# Ищем .exe файл приложения
-$appExe = Get-ChildItem -Path $scriptDir -Filter "*.exe" -File | 
-          Where-Object { $_.Name -notlike "*-setup.exe" } |
-          Select-Object -First 1
-
-if ($appExe) {
-    Write-Host "Starting application: $($appExe.Name)" -ForegroundColor Green
-    Start-Process -FilePath $appExe.FullName
-} else {
-    Write-Host "❌ Application executable not found!" -ForegroundColor Red
-    Write-Host "Looking for .msi installer instead..." -ForegroundColor Yellow
-    
-    $msiFile = Get-ChildItem -Path $scriptDir -Filter "*.msi" -File | Select-Object -First 1
-    
-    if ($msiFile) {
-        Write-Host "Found installer: $($msiFile.Name)" -ForegroundColor Green
-        Write-Host "Please install the application first by running:" -ForegroundColor Yellow
-        Write-Host "  Start-Process msiexec.exe -ArgumentList '/i `"$($msiFile.FullName)`"'" -ForegroundColor White
-    } else {
-        Write-Host "No executable or installer found in release directory" -ForegroundColor Red
-    }
-}
-'@
-
-Set-Content -Path "$releaseDir\run-app.ps1" -Value $runAppScript -Encoding UTF8
-Write-Host "✓ run-app.ps1 created" -ForegroundColor Green
+Set-Content -Path "$releaseDir\start-backend-only.ps1" -Value $backendOnlyScript -Encoding UTF8
+Write-Host "✓ start-backend-only.ps1 created" -ForegroundColor Green
 
 # ========================================
 # 4. README для Windows
 # ========================================
-Write-Host "Creating README-WINDOWS.md..." -ForegroundColor Cyan
+Write-Host "Creating README.md..." -ForegroundColor Cyan
 
 $readmeContent = @'
-# Dataset Manager - Windows Release
+# Dataset Manager - Portable Application (Windows)
 
 ## 📋 System Requirements
 
