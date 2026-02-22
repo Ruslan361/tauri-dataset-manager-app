@@ -1,8 +1,8 @@
 [Setup]
 ; Базовая информация
-AppName=Dataset Manager
+AppName=Cicatrix Lucius
 AppVersion=1.0
-DefaultGroupName=Dataset Manager
+DefaultGroupName=Cicatrix Lucius
 
 ; Вызываем нашу умную функцию для определения пути установки
 DefaultDirName={code:GetInstallDir}
@@ -13,7 +13,7 @@ DisableDirPage=no
 
 ; Настройки вывода (установщик появится в папке release)
 OutputDir=..\release
-OutputBaseFilename=DatasetManager_Setup
+OutputBaseFilename=Cicatrix_Lucius_Setup
 Compression=lzma
 SolidCompression=yes
 
