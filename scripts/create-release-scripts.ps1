@@ -404,3 +404,8 @@ $readmeContent = @"
 
 ```powershell
 .\install.ps1
+"@
+
+$readmePath = Join-Path $releaseDir "README.md"
+[System.IO.File]::WriteAllText($readmePath, $readmeContent, $utf8BOM)
+Write-Host "✓ README.md created" -ForegroundColor Green
