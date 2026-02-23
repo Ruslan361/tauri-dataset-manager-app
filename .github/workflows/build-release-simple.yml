@@ -75,4 +75,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: release-windows-installer
-          path: release/DatasetManager_Setup.exe
+          path: release/Cicatrix_Lucius_Setup.exe
