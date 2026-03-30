@@ -1,8 +1,8 @@
 [Setup]
 ; Базовая информация
-AppName=Cicatrix Lucius
+AppName=Атрофовизуализация
 AppVersion=1.0
-DefaultGroupName=Cicatrix Lucius
+DefaultGroupName=Атрофовизуализация
 
 ; Вызываем нашу умную функцию для определения пути установки
 DefaultDirName={code:GetInstallDir}
@@ -13,7 +13,7 @@ DisableDirPage=no
 
 ; Настройки вывода (установщик появится в папке release)
 OutputDir=..\release
-OutputBaseFilename=Cicatrix_Lucius_Setup
+OutputBaseFilename=Atrofovizualizatia
 Compression=lzma
 SolidCompression=yes
 
