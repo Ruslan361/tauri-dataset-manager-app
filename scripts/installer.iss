@@ -29,9 +29,9 @@ Source: "..\release\windows\backend\*"; DestDir: "{app}\backend"; Flags: ignorev
 
 [Icons]
 ; Ярлык на рабочий стол (запускает скрыто start.ps1 через PowerShell)
-Name: "{autodesktop}\Dataset Manager"; Filename: "powershell.exe"; Parameters: "-WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\start.ps1"""; IconFilename: "{app}\dataset-manager.exe"
+Name: "{autodesktop}\Атрофовизуализация"; Filename: "powershell.exe"; Parameters: "-WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\start.ps1"""; IconFilename: "{app}\dataset-manager.exe"
 ; Ярлык в меню пуск
-Name: "{group}\Dataset Manager"; Filename: "powershell.exe"; Parameters: "-WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\start.ps1"""; IconFilename: "{app}\dataset-manager.exe"
+Name: "{group}\Атрофовизуализация"; Filename: "powershell.exe"; Parameters: "-WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\start.ps1"""; IconFilename: "{app}\dataset-manager.exe"
 
 [Run]
 ; Предлагаем запустить установку зависимостей сразу после завершения
@@ -71,11 +71,11 @@ var
   DefaultPath: String;
   FallbackPath: String;
 begin
-  // Стандартный путь: C:\Users\Имя\AppData\Local\Dataset Manager
-  DefaultPath := ExpandConstant('{localappdata}\Dataset Manager');
+  // Стандартный путь: C:\Users\Имя\AppData\Local\Atrofovizualizatia
+  DefaultPath := ExpandConstant('{localappdata}\Atrofovizualizatia');
   
-  // Безопасный путь без кириллицы: C:\Users\Public\Documents\Dataset Manager
-  FallbackPath := ExpandConstant('{commondocs}\Dataset Manager');
+  // Безопасный путь без кириллицы: C:\Users\Public\Documents\Atrofovizualizatia
+  FallbackPath := ExpandConstant('{commondocs}\Atrofovizualizatia');
 
   // Если в стандартном пути есть русские буквы, возвращаем безопасный путь
   if HasNonAscii(DefaultPath) then
@@ -136,7 +136,7 @@ begin
   begin
     MsgBox('ℹ Обнаружены русские символы в имени пользователя.' #13#13 +
            'Чтобы избежать ошибок при установке Python, программа будет установлена в общую папку: ' #13 +
-           'C:\Users\Public\Documents\Dataset Manager', 
+           'C:\Users\Public\Documents\Atrofovizualizatia', 
            mbInformation, MB_OK);
   end;
 end;
