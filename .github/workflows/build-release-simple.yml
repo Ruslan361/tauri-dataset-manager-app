@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [ tauri ]
+    branches: [ tauri, manual-only ]
   workflow_dispatch:
 
 jobs:

@@ -1,7 +1,7 @@
 [submodule "frontend"]
 	path = frontend
 	url = https://github.com/Ruslan361/dataset-manager-vue-gui.git
-	branch = tauri
+	branch = manual-only
 [submodule "backend"]
 	path = backend
 	url = https://github.com/Ruslan361/dataset-manager.git
