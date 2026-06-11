@@ -59,23 +59,6 @@ fi
 
 cd backend
 
-# Проверка Python
-echo "Checking Python..."
-if ! command -v python3 &> /dev/null; then
-    print_error "Python 3 not found!"
-    echo ""
-    echo "Please install Python 3.10+:"
-    echo "  Ubuntu/Debian: sudo apt install python3 python3-pip python3-venv"
-    echo "  Fedora: sudo dnf install python3 python3-pip"
-    echo "  macOS: brew install python@3.12"
-    exit 1
-fi
-
-PYTHON_VERSION=$(python3 --version)
-print_status "$PYTHON_VERSION"
-
-echo ""
-
 # Проверка/Установка uv
 echo "Checking uv..."
 if ! command -v uv &> /dev/null; then

@@ -66,25 +66,6 @@ if (-not (Test-Path "backend" -PathType Container)) {
 
 Set-Location "backend"
 
-# Проверка Python
-Write-Host "Checking Python..." -ForegroundColor Cyan
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    Print-Error "Python 3 not found!"
-    Write-Host ""
-    Write-Host "Please install Python 3.10+ from:" -ForegroundColor Yellow
-    Write-Host "  https://www.python.org/downloads/" -ForegroundColor White
-    Write-Host ""
-    Write-Host "During installation, make sure to:" -ForegroundColor Yellow
-    Write-Host "  ✓ Check 'Add Python to PATH'" -ForegroundColor White
-    Write-Host "  ✓ Check 'Install pip'" -ForegroundColor White
-    exit 1
-}
-
-$pythonVersion = python --version
-Print-Status $pythonVersion
-
-Write-Host ""
-
 # Проверка/Установка uv
 Write-Host "Checking uv..." -ForegroundColor Cyan
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
