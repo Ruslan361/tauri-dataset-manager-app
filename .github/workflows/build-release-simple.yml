@@ -67,11 +67,13 @@ jobs:
           $uv = Join-Path $PWD "release\windows\tools\uv.exe"
           New-Item -ItemType Directory -Force -Path release\windows\wheels | Out-Null
           Set-Location backend
-          # Экспортируем зафиксированные зависимости без хешей
-          & $uv export --locked --no-hashes --output-file ..\release\windows\requirements.txt
+          # Обновляем lockfile если устарел, затем экспортируем requirements.txt
+          & $uv lock
+          & $uv export --frozen --no-hashes --output-file ..\release\windows\requirements.txt
           # Скачиваем prebuilt wheels для win_amd64 под Python 3.10, 3.11, 3.12
+          # uv pip download не существует — используем системный pip
           foreach ($pyver in @("3.10", "3.11", "3.12")) {
-            & $uv pip download `
+            python -m pip download `
               -r ..\release\windows\requirements.txt `
               --platform win_amd64 `
               --python-version $pyver `
