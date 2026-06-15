@@ -18,34 +18,32 @@ Compression=lzma
 SolidCompression=yes
 
 [Files]
-; Берем все файлы из сгенерированной вашими скриптами папки release/windows/
 Source: "..\release\windows\dataset-manager.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\release\windows\install.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\release\windows\install.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\release\windows\start.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\release\windows\start.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\release\windows\start-backend-only.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\release\windows\README.md"; DestDir: "{app}"; Flags: ignoreversion
-; Рекурсивно упаковываем папку backend
+Source: "..\release\windows\tools\*"; DestDir: "{app}\tools"; Flags: ignoreversion
+Source: "..\release\windows\requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\release\windows\wheels\*"; DestDir: "{app}\wheels"; Flags: ignoreversion
 Source: "..\release\windows\backend\*"; DestDir: "{app}\backend"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-; Ярлык на рабочий стол (запускает скрыто start.ps1 через PowerShell)
-Name: "{autodesktop}\Атрофовизуализация"; Filename: "powershell.exe"; Parameters: "-WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\start.ps1"""; IconFilename: "{app}\dataset-manager.exe"
-; Ярлык в меню пуск
-Name: "{group}\Атрофовизуализация"; Filename: "powershell.exe"; Parameters: "-WindowStyle Hidden -ExecutionPolicy Bypass -File ""{app}\start.ps1"""; IconFilename: "{app}\dataset-manager.exe"
+Name: "{autodesktop}\Атрофовизуализация"; Filename: "{app}\start.bat"; IconFilename: "{app}\dataset-manager.exe"
+Name: "{group}\Атрофовизуализация"; Filename: "{app}\start.bat"; IconFilename: "{app}\dataset-manager.exe"
 
 [Run]
-; Предлагаем запустить установку зависимостей сразу после завершения
-Filename: "powershell.exe"; Parameters: "-NoExit -ExecutionPolicy Bypass -File ""{app}\install.ps1"""; Description: "Установить Python-зависимости (требуется интернет)"; Flags: postinstall nowait
+Filename: "powershell.exe"; Parameters: "-Command Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force"; Flags: runhidden waituntilterminated
+Filename: "{app}\install.bat"; Description: "Установить Python-зависимости"; Flags: postinstall nowait shellexec
 
 [UninstallDelete]
-; --- ПОЛНОЕ УДАЛЕНИЕ (ЧИСТКА МУСОРА) ---
-; 1. Удаляем тяжелое виртуальное окружение со всеми скачанными пакетами
 Type: filesandordirs; Name: "{app}\backend\.venv"
-; 2. Удаляем временный кэш питона
 Type: filesandordirs; Name: "{app}\backend\__pycache__"
-; 3. Удаляем логи, которые создает start.ps1 в AppData
+Type: filesandordirs; Name: "{app}\tools"
+Type: filesandordirs; Name: "{app}\wheels"
 Type: filesandordirs; Name: "{localappdata}\dataset-manager"
-; 4. Удаляем саму папку программы, чтобы не осталось следов
 Type: filesandordirs; Name: "{app}"
 
 [Code]

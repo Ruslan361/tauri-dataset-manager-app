@@ -49,7 +49,36 @@ jobs:
           node-version: '20'
           
       - uses: dtolnay/rust-toolchain@stable
-      
+
+      - name: Download bundled uv
+        shell: pwsh
+        run: |
+          $zip = "uv-x86_64-pc-windows-msvc.zip"
+          Invoke-WebRequest -Uri "https://github.com/astral-sh/uv/releases/latest/download/$zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath uv-extracted -Force
+          New-Item -ItemType Directory -Force -Path release\windows\tools | Out-Null
+          $uvExe = Get-ChildItem uv-extracted -Recurse -Filter uv.exe | Select-Object -First 1
+          Copy-Item $uvExe.FullName release\windows\tools\uv.exe
+          Remove-Item $zip, uv-extracted -Recurse -Force
+
+      - name: Pre-download Python wheels
+        shell: pwsh
+        run: |
+          $uv = Join-Path $PWD "release\windows\tools\uv.exe"
+          New-Item -ItemType Directory -Force -Path release\windows\wheels | Out-Null
+          Set-Location backend
+          # Экспортируем зафиксированные зависимости без хешей
+          & $uv export --locked --no-hashes --output-file ..\release\windows\requirements.txt
+          # Скачиваем prebuilt wheels для win_amd64 под Python 3.10, 3.11, 3.12
+          foreach ($pyver in @("3.10", "3.11", "3.12")) {
+            & $uv pip download `
+              -r ..\release\windows\requirements.txt `
+              --platform win_amd64 `
+              --python-version $pyver `
+              --only-binary :all: `
+              --dest ..\release\windows\wheels
+          }
+
       - name: Run build scripts
         shell: pwsh
         run: |

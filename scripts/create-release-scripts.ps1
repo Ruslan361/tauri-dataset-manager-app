@@ -32,33 +32,17 @@ $installScript = @'
 $ErrorActionPreference = "Stop"
 
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "🔧 Installing Dataset Manager Dependencies" -ForegroundColor Cyan
+Write-Host "Installing Dataset Manager Dependencies" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $scriptDir
 
-# Функции
-function Print-Status {
-    param([string]$Message)
-    Write-Host "✓ " -ForegroundColor Green -NoNewline
-    Write-Host $Message
-}
+function Print-Status { param([string]$m); Write-Host "[OK] " -ForegroundColor Green -NoNewline; Write-Host $m }
+function Print-Error  { param([string]$m); Write-Host "[ERR] " -ForegroundColor Red -NoNewline; Write-Host $m }
+function Print-Info   { param([string]$m); Write-Host "[INFO] " -ForegroundColor Blue -NoNewline; Write-Host $m }
 
-function Print-Error {
-    param([string]$Message)
-    Write-Host "✗ " -ForegroundColor Red -NoNewline
-    Write-Host $Message
-}
-
-function Print-Info {
-    param([string]$Message)
-    Write-Host "ℹ " -ForegroundColor Blue -NoNewline
-    Write-Host $Message
-}
-
-# Проверка backend директории
 if (-not (Test-Path "backend" -PathType Container)) {
     Print-Error "Backend directory not found!"
     exit 1
@@ -66,103 +50,97 @@ if (-not (Test-Path "backend" -PathType Container)) {
 
 Set-Location "backend"
 
-# Проверка Python
-Write-Host "Checking Python..." -ForegroundColor Cyan
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    Print-Error "Python 3 not found!"
-    Write-Host ""
-    Write-Host "Please install Python 3.10+ from:" -ForegroundColor Yellow
-    Write-Host "  https://www.python.org/downloads/" -ForegroundColor White
-    Write-Host ""
-    Write-Host "During installation, make sure to:" -ForegroundColor Yellow
-    Write-Host "  ✓ Check 'Add Python to PATH'" -ForegroundColor White
-    Write-Host "  ✓ Check 'Install pip'" -ForegroundColor White
-    exit 1
-}
-
-$pythonVersion = python --version
-Print-Status $pythonVersion
-
-Write-Host ""
-
-# Проверка/Установка uv
+# Используем системный uv если есть, иначе - bundled из папки tools
 Write-Host "Checking uv..." -ForegroundColor Cyan
-if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-    Print-Info "Installing uv..."
-    
-    # Установка uv через PowerShell
-    irm https://astral.sh/uv/install.ps1 | iex
-    
-    # Обновляем PATH для текущей сессии
-    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-    
-    if (Get-Command uv -ErrorAction SilentlyContinue) {
-        Print-Status "uv installed"
+$uvCmd = $null
+if (Get-Command uv -ErrorAction SilentlyContinue) {
+    $uvCmd = "uv"
+    Print-Status "uv $((uv --version).Split()[1]) (system)"
+} else {
+    $bundledUv = Join-Path $scriptDir "tools\uv.exe"
+    if (Test-Path $bundledUv) {
+        $uvCmd = $bundledUv
+        Print-Status "uv (bundled)"
     } else {
-        Print-Error "Failed to install uv"
-        Write-Host "Please install manually:" -ForegroundColor Yellow
-        Write-Host "  irm https://astral.sh/uv/install.ps1 | iex" -ForegroundColor White
+        Print-Error "uv not found!"
+        Write-Host ""
+        Write-Host "Install uv via winget:" -ForegroundColor Yellow
+        Write-Host "  winget install astral-sh.uv" -ForegroundColor White
         exit 1
     }
-} else {
-    $uvVersion = (uv --version).Split()[1]
-    Print-Status "uv $uvVersion"
 }
 
 Write-Host ""
 
-Write-Host "Installing Python dependencies..." -ForegroundColor Cyan
-Print-Info "This may take a few minutes..."
-Write-Host ""
-
-# =================================================================
-# 🛡️ ПУЛЕНЕПРОБИВАЕМАЯ ЗАЩИТА ОТ КИРИЛЛИЦЫ В ПУТЯХ TEMP И CACHE
-# Создаем временную папку прямо внутри backend, чтобы избежать 
-# кириллицы в C:\Users\Имя\AppData\Local\Temp
-# =================================================================
+# Защита от кириллицы в пути TEMP
 $SafeTempDir = Join-Path $PWD ".uv_temp"
 New-Item -ItemType Directory -Path $SafeTempDir -Force | Out-Null
-
-# Переопределяем системные переменные только для этого скрипта
 $env:TEMP = $SafeTempDir
 $env:TMP = $SafeTempDir
-$env:UV_CACHE_DIR = Join-Path $PWD ".uv_cache" 
+$env:UV_CACHE_DIR = Join-Path $PWD ".uv_cache"
 
-# uv sync создаст .venv и установит все зависимости, используя безопасный Temp
-uv sync
+# Создаем виртуальное окружение
+Write-Host "Creating virtual environment..." -ForegroundColor Cyan
+& $uvCmd venv .venv
+if ($LASTEXITCODE -ne 0) {
+    Print-Error "Failed to create virtual environment!"
+    exit 1
+}
+Print-Status "Virtual environment created"
+Write-Host ""
 
-# Удаляем временные папки после успешной (или неуспешной) установки
+# Устанавливаем зависимости
+Write-Host "Installing Python dependencies..." -ForegroundColor Cyan
+
+$wheelsDir = Join-Path $scriptDir "wheels"
+$reqFile   = Join-Path $scriptDir "requirements.txt"
+$exitCode  = 1
+
+if ((Test-Path $wheelsDir) -and (Test-Path $reqFile)) {
+    Print-Info "Installing from bundled packages (no internet required)..."
+    $env:VIRTUAL_ENV = Join-Path $PWD ".venv"
+    & $uvCmd pip install -r $reqFile --find-links $wheelsDir --no-index
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        Print-Info "Bundled wheels do not match Python version, trying online..."
+        & $uvCmd sync
+        $exitCode = $LASTEXITCODE
+    }
+} else {
+    Print-Info "Bundled packages not found, downloading from PyPI..."
+    & $uvCmd sync
+    $exitCode = $LASTEXITCODE
+}
+
 Remove-Item -Path $SafeTempDir -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path $env:UV_CACHE_DIR -Recurse -Force -ErrorAction SilentlyContinue
 
-if ($LASTEXITCODE -eq 0) {
+if ($exitCode -eq 0) {
     Write-Host ""
     Print-Status "Dependencies installed successfully!"
     Write-Host ""
-    Write-Host "Virtual environment created at: backend\.venv" -ForegroundColor Green
+    Write-Host "Virtual environment: backend\.venv" -ForegroundColor Green
     Write-Host ""
 } else {
     Write-Host ""
     Print-Error "Failed to install dependencies!"
     Write-Host ""
     Write-Host "Try manually:" -ForegroundColor Yellow
-    Write-Host "  cd backend" -ForegroundColor White
-    Write-Host "  uv sync" -ForegroundColor White
+    Write-Host "  cd backend && uv sync" -ForegroundColor White
     exit 1
 }
 
 Set-Location ..
 
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "✅ Installation completed!" -ForegroundColor Green
+Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "To start the application:" -ForegroundColor Cyan
-Write-Host "  .\start.ps1" -ForegroundColor White
+Write-Host "Run the application: double-click the desktop shortcut" -ForegroundColor Cyan
 Write-Host ""
 '@
 
-# Используем .NET класс для гарантии сохранения файла с BOM
 $installPath = Join-Path $releaseDir "install.ps1"
 [System.IO.File]::WriteAllText($installPath, $installScript, $utf8BOM)
 Write-Host "✓ install.ps1 created" -ForegroundColor Green
@@ -436,10 +414,24 @@ $readmePath = Join-Path $releaseDir "README.md"
 [System.IO.File]::WriteAllText($readmePath, $readmeContent, $utf8BOM)
 Write-Host "✓ README.md created" -ForegroundColor Green
 
+# ========================================
+# 5. Bat-лаунчеры (запускаются из ярлыков без -ExecutionPolicy Bypass)
+# ========================================
+Write-Host "Creating start.bat..." -ForegroundColor Cyan
+$startBat = "@echo off`r`ncd /d `"%~dp0`"`r`npowershell.exe -File `"%~dp0start.ps1`"`r`n"
+$startBatPath = Join-Path $releaseDir "start.bat"
+[System.IO.File]::WriteAllText($startBatPath, $startBat)
+Write-Host "✓ start.bat created" -ForegroundColor Green
+
+Write-Host "Creating install.bat..." -ForegroundColor Cyan
+$installBat = "@echo off`r`ncd /d `"%~dp0`"`r`npowershell.exe -File `"%~dp0install.ps1`"`r`npause`r`n"
+$installBatPath = Join-Path $releaseDir "install.bat"
+[System.IO.File]::WriteAllText($installBatPath, $installBat)
+Write-Host "✓ install.bat created" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "✅ All release scripts created!" -ForegroundColor Green
+Write-Host "All release scripts created!" -ForegroundColor Green
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Release directory: $releaseDir" -ForegroundColor White
